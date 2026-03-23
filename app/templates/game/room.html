@@ -1,0 +1,187 @@
+{% extends 'base.html' %}
+{% block title %}Sala {{ room.code }}{% endblock %}
+
+{% block content %}
+<script>
+  window.GAME_CONFIG = {
+    roomId:   {{ room.id }},
+    gameId:   null,
+    playerId: {{ player.id }},
+    isAdmin:  {{ 'true' if is_admin else 'false' }},
+  };
+  window.ADMIN_ID = {{ room.admin_player_id }};
+</script>
+
+<div id="lobby-section" class="lobby">
+  <div class="lobby__main">
+    <div style="max-width:600px">
+      <p style="font-size:0.75rem; letter-spacing:0.2em; color:var(--clr-gold); opacity:0.7; text-transform:uppercase; margin-bottom:8px">Sala de Espera</p>
+      <h1 class="lobby__title">{{ room.code }}</h1>
+      <div style="margin-bottom:24px">
+        <span style="font-size:0.85rem; opacity:0.6">{{ room.player_count }} / {{ room.max_players }} jugadores</span>
+        <span style="margin:0 12px; opacity:0.3">·</span>
+        <span style="font-size:0.85rem; opacity:0.6">{{ room.decks_count }} mazo · {{ 52 * room.decks_count }} cartas</span>
+      </div>
+
+      <ul id="players-list" class="players-list">
+        {% for rp in room.active_players %}
+        <li class="players-list__item">
+          <div class="players-list__avatar">{{ rp.player.username[0].upper() }}</div>
+          <div>
+            <div class="players-list__name">{{ rp.player.username }}</div>
+            <div style="font-size:0.75rem;opacity:0.5">🪙 {{ rp.player.chips }} fichas</div>
+          </div>
+          <span class="players-list__seat">Asiento {{ rp.seat_number }}</span>
+          {% if rp.player.id == player.id %}
+            <span class="players-list__badge">TÚ</span>
+          {% elif rp.player.id == room.admin_player_id %}
+            <span class="players-list__badge" style="background:rgba(192,57,43,0.2);color:#e74c3c;border-color:rgba(192,57,43,0.3)">ADMIN</span>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+<div style="margin-top:16px">
+  <button onclick="leaveRoom()" class="btn btn--outline btn--sm" style="color:var(--clr-red);border-color:var(--clr-red)">
+    Abandonar sala
+  </button>
+</div>
+      {% if is_admin %}
+      <div style="margin-top:24px">
+        <button id="btn-start" class="btn btn--gold btn--lg" {% if room.player_count < 3 %}disabled{% endif %}>
+          {% if room.player_count < 3 %}Esperando jugadores (mín. 3){% else %}🃏 Iniciar Partida{% endif %}
+        </button>
+        <p style="font-size:0.75rem; opacity:0.5; margin-top:8px">Solo el administrador puede iniciar.</p>
+      </div>
+      {% else %}
+      <div style="margin-top:24px; padding:16px; background:rgba(255,255,255,0.03); border-radius:12px; text-align:center; opacity:0.7">
+        ⏳ Esperando que el administrador inicie la partida...
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="lobby__sidebar">
+    <h3 style="font-family:var(--font-display); color:var(--clr-gold); margin-bottom:16px; font-size:1.1rem">Invitar Jugadores</h3>
+    <p style="font-size:0.8rem; opacity:0.6; margin-bottom:8px">Código de sala:</p>
+    <div class="lobby__code">{{ room.code }}</div>
+    <div style="margin:16px 0">
+      <p style="font-size:0.8rem; opacity:0.6; margin-bottom:8px">Link de invitación:</p>
+      <div style="display:flex; gap:8px">
+        <input id="invite-url" class="form-input"
+               value="{{ request.host_url }}rooms/join/{{ room.invite_token }}"
+               readonly style="font-size:0.75rem; padding:8px 12px">
+        <button id="btn-copy-url" class="btn btn--outline btn--sm" title="Copiar">📋</button>
+      </div>
+    </div>
+    <div style="margin-top:16px">
+      <button id="btn-qr" class="btn btn--outline" style="width:100%; margin-bottom:12px">📱 Generar QR</button>
+      <div id="qr-container" class="qr-container" style="display:none; width:100%">
+        <img id="qr-image" src="" alt="Código QR">
+        <span style="font-size:0.75rem; color:#333; font-weight:600">Escanear para unirse</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="game-section" class="game-table" style="display:none">
+  <div style="position:absolute; top:16px; left:16px; z-index:10">
+    <div class="deck-indicator">
+      🂠 <span class="deck-indicator__count" id="deck-count">{{ 52 * room.decks_count }}</span>
+      <span style="opacity:0.6; font-size:0.75rem">cartas</span>
+    </div>
+  </div>
+
+  <div class="dealer-zone">
+    <div class="dealer-zone__label">— Dealer —</div>
+    <div id="dealer-cards" class="player-seat__cards" style="justify-content:center; min-height:120px"></div>
+    <div class="dealer-zone__score" id="dealer-score">–</div>
+  </div>
+
+  <div class="players-zone" id="players-zone">
+    {% for rp in room.active_players %}
+    <div class="player-seat" id="seat-{{ rp.player.id }}">
+      <div class="player-seat__name">
+        {{ rp.player.username }}
+        {% if rp.player.id == player.id %}<span style="font-size:0.65rem; color:var(--clr-gold)"> (TÚ)</span>{% endif %}
+      </div>
+      <div id="cards-{{ rp.player.id }}" class="player-seat__cards"></div>
+      <div class="player-seat__score" id="score-{{ rp.player.id }}">–</div>
+      <div class="player-seat__chips" id="chips-{{ rp.player.id }}">🪙 {{ rp.player.chips }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <div class="game-controls">
+    <button id="btn-hit"   class="btn btn--green" disabled>🃏 Pedir Carta</button>
+    <button id="btn-stand" class="btn btn--red"   disabled>✋ Plantarse</button>
+  </div>
+
+  <div class="side-panel">
+    <div class="prob-panel">
+      <div class="prob-panel__title">Probabilidades</div>
+      <div class="prob-bar-group">
+        <div class="prob-bar-label">
+          <span class="prob-bar-label__name">P(Ganar)</span>
+          <span class="prob-bar-label__value" id="prob-win-val">–</span>
+        </div>
+        <div class="prob-bar-track"><div class="prob-bar-fill prob-bar-fill--win" style="width:0%"></div></div>
+      </div>
+      <div class="prob-bar-group">
+        <div class="prob-bar-label">
+          <span class="prob-bar-label__name">P(Perder)</span>
+          <span class="prob-bar-label__value" id="prob-lose-val">–</span>
+        </div>
+        <div class="prob-bar-track"><div class="prob-bar-fill prob-bar-fill--lose" style="width:0%"></div></div>
+      </div>
+      <div class="prob-bar-group">
+        <div class="prob-bar-label">
+          <span class="prob-bar-label__name">P(Bust)</span>
+          <span class="prob-bar-label__value" id="prob-bust-val">–</span>
+        </div>
+        <div class="prob-bar-track"><div class="prob-bar-fill prob-bar-fill--bust" style="width:0%"></div></div>
+      </div>
+      <div class="prob-bar-group">
+        <div class="prob-bar-label">
+          <span class="prob-bar-label__name">P(Empate)</span>
+          <span class="prob-bar-label__value" id="prob-push-val">–</span>
+        </div>
+        <div class="prob-bar-track"><div class="prob-bar-fill prob-bar-fill--push" style="width:0%"></div></div>
+      </div>
+      <div style="margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.06); font-size:0.78rem; opacity:0.6">
+        Valor esperado próxima carta: <strong id="expected-value" style="color:var(--clr-gold-light)">–</strong>
+      </div>
+    </div>
+
+    <div class="prob-panel" style="padding:12px">
+      <div class="prob-panel__title" style="font-size:0.8rem; margin-bottom:8px">Evolución</div>
+      <div class="chart-container"><canvas id="prob-chart"></canvas></div>
+    </div>
+
+    <div class="prob-panel">
+      <div class="prob-panel__title" style="font-size:0.8rem">Distribución del Mazo</div>
+      <div id="deck-distribution" class="deck-distribution"></div>
+    </div>
+  </div>
+</div>
+
+<div id="result-overlay" class="result-overlay">
+  <div class="result-card">
+    <div class="result-card__emoji" id="result-emoji">🏆</div>
+    <h2 class="result-card__title" id="result-title">Resultado</h2>
+    <div class="result-card__delta" id="result-delta">+0 fichas</div>
+    <p id="result-score" style="opacity:0.6; margin-bottom:24px"></p>
+    <div id="all-results" style="text-align:left; margin-bottom:24px; font-size:0.85rem"></div>
+    <div style="display:flex; gap:12px; justify-content:center; flex-wrap:wrap">
+      <button id="btn-new-game" class="btn btn--gold">🔄 Nueva Partida</button>
+      <a href="{{ url_for('stats.dashboard') }}" class="btn btn--outline">📊 Ver Estadísticas</a>
+    </div>
+  </div>
+</div>
+<script>
+async function leaveRoom() {
+  if (!confirm('¿Abandonar la sala?')) return;
+  await fetch('/rooms/leave/{{ room.id }}', { method: 'POST' });
+  window.location.href = '/rooms/';
+}
+</script>
+{% endblock %}

@@ -1,0 +1,39 @@
+{% extends 'base.html' %}
+{% block title %}Ingresar{% endblock %}
+{% block content %}
+<div style="min-height:80vh; display:flex; align-items:center; justify-content:center; padding:40px">
+  <div style="width:100%; max-width:400px">
+    <h1 style="font-family:var(--font-display); font-size:2rem; color:var(--clr-gold); margin-bottom:8px">Ingresar</h1>
+    <p style="opacity:0.6; margin-bottom:32px; font-size:0.9rem">Escribe tu nombre de usuario para continuar.</p>
+
+    <div class="form-group">
+      <label class="form-label">Nombre de usuario</label>
+      <input id="username" class="form-input" type="text" placeholder="Ej: jugador123" autocomplete="username">
+    </div>
+
+    <button class="btn btn--gold" style="width:100%" onclick="doLogin()">Entrar al Casino</button>
+
+    <p style="margin-top:16px; font-size:0.85rem; opacity:0.6; text-align:center">
+      ¿No tienes cuenta? <a href="{{ url_for('auth.register') }}" style="color:var(--clr-gold-light)">Regístrate</a>
+    </p>
+  </div>
+</div>
+<script>
+async function doLogin() {
+  const username = document.getElementById('username').value.trim();
+  if (!username) return showToast('Ingresa tu nombre de usuario', 'error');
+  const r = await fetch('/auth/login', {
+    method: 'POST', headers: {'Content-Type':'application/json'},
+    body: JSON.stringify({ username })
+  });
+  const d = await r.json();
+  if (d.success) window.location.href = '/rooms/';
+  else showToast(d.error || 'Error al ingresar', 'error');
+}
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('username').addEventListener('keydown', e => {
+    if (e.key === 'Enter') doLogin();
+  });
+});
+</script>
+{% endblock %}

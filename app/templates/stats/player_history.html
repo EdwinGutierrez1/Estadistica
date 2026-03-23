@@ -1,0 +1,83 @@
+{% extends 'base.html' %}
+{% block title %}Historial — {{ player.username }}{% endblock %}
+{% block content %}
+<div style="max-width:1100px; margin:0 auto; padding:40px 24px">
+  <div style="margin-bottom:32px">
+    <p style="font-size:0.75rem; letter-spacing:0.2em; color:var(--clr-gold); opacity:0.7; text-transform:uppercase; margin-bottom:4px">Análisis Probabilístico</p>
+    <h1 style="font-family:var(--font-display); font-size:2rem; color:var(--clr-cream)">{{ player.username }}</h1>
+    <p style="opacity:0.5; font-size:0.9rem; margin-top:4px">Evolución de probabilidades durante sus partidas</p>
+  </div>
+
+  <div class="prob-panel" style="margin-bottom:24px">
+    <div class="prob-panel__title">Evolución de Probabilidades</div>
+    <div style="height:350px; position:relative"><canvas id="history-chart"></canvas></div>
+  </div>
+
+  <div class="prob-panel">
+    <div class="prob-panel__title" style="font-size:0.85rem; margin-bottom:16px">Registro Detallado</div>
+    <div style="overflow-x:auto">
+      <table class="stats-table" id="snapshots-table">
+        <thead>
+          <tr>
+            <th>#</th><th>Cartas restantes</th><th>Score</th>
+            <th>P(Ganar)</th><th>P(Bust)</th><th>P(Empate)</th>
+          </tr>
+        </thead>
+        <tbody id="snapshots-tbody">
+          <tr><td colspan="6" style="text-align:center; padding:40px; opacity:0.4">Cargando datos...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_scripts %}
+<script>
+const PLAYER_ID = {{ player.id }};
+async function loadHistory() {
+  const resp = await fetch(`/stats/player/${PLAYER_ID}/history?format=json`);
+  if (!resp.ok) return;
+  const data = await resp.json();
+
+  if (data.length === 0) {
+    document.getElementById('snapshots-tbody').innerHTML =
+      '<tr><td colspan="6" style="text-align:center;padding:40px;opacity:0.4">No hay partidas registradas aún.</td></tr>';
+    return;
+  }
+
+  const ctx = document.getElementById('history-chart').getContext('2d');
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: data.map((_, i) => i + 1),
+      datasets: [
+        { label: 'P(Ganar)', data: data.map(d => d.prob_win),  borderColor: '#27ae60', backgroundColor: 'rgba(39,174,96,0.08)',  borderWidth: 2, fill: true, tension: 0.4 },
+        { label: 'P(Bust)',  data: data.map(d => d.prob_bust), borderColor: '#e74c3c', backgroundColor: 'rgba(231,76,60,0.06)',  borderWidth: 2, fill: true, tension: 0.4 },
+        { label: 'P(Empate)',data: data.map(d => d.prob_push), borderColor: '#f39c12', borderWidth: 1.5, fill: false, tension: 0.4 },
+      ]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      scales: {
+        x: { ticks: { color: 'rgba(245,239,224,0.5)', font:{size:10} }, grid: { color: 'rgba(255,255,255,0.04)' } },
+        y: { min:0, max:1, ticks: { color: 'rgba(245,239,224,0.5)', font:{size:10}, callback: v => `${(v*100).toFixed(0)}%` }, grid: { color: 'rgba(255,255,255,0.04)' } }
+      },
+      plugins: { legend: { labels: { color: 'rgba(245,239,224,0.6)', font:{size:10} } } }
+    }
+  });
+
+  document.getElementById('snapshots-tbody').innerHTML = data.slice(0, 100).map((d, i) => `
+    <tr>
+      <td style="opacity:0.4">${i+1}</td>
+      <td style="text-align:center">${d.cards_remaining}</td>
+      <td style="text-align:center;font-weight:600">${d.current_score}</td>
+      <td style="color:#27ae60;text-align:center">${(d.prob_win*100).toFixed(1)}%</td>
+      <td style="color:#e74c3c;text-align:center">${(d.prob_bust*100).toFixed(1)}%</td>
+      <td style="color:#f39c12;text-align:center">${(d.prob_push*100).toFixed(1)}%</td>
+    </tr>
+  `).join('');
+}
+document.addEventListener('DOMContentLoaded', loadHistory);
+</script>
+{% endblock %}

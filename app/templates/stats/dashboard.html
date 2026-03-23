@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+{% block title %}Estadísticas{% endblock %}
+{% block content %}
+<div style="max-width:1000px; margin:0 auto; padding:40px 24px">
+  <h1 style="font-family:var(--font-display); font-size:2rem; color:var(--clr-gold); margin-bottom:8px">Tabla de Líderes</h1>
+  <p style="opacity:0.5; margin-bottom:32px; font-size:0.9rem">Estadísticas globales por jugador</p>
+
+  <div style="background:rgba(0,0,0,0.3); border:1px solid rgba(201,168,76,0.15); border-radius:16px; overflow:hidden">
+    <table class="stats-table">
+      <thead>
+        <tr>
+          <th>#</th><th>Jugador</th><th>Manos</th><th>Victorias</th>
+          <th>Blackjacks</th><th>Derrotas</th><th>Bust</th>
+          <th>% Victorias</th><th>Fichas netas</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in stats %}
+        <tr>
+          <td style="opacity:0.4">{{ loop.index }}</td>
+          <td><strong>{{ row.username }}</strong></td>
+          <td>{{ row.total_hands }}</td>
+          <td style="color:#27ae60">{{ row.wins }}</td>
+          <td style="color:#ffd700">{{ row.blackjacks }}</td>
+          <td style="color:#c0392b">{{ row.losses }}</td>
+          <td style="color:#e74c3c">{{ row.busts }}</td>
+          <td>
+            <span style="color:{{ '#27ae60' if row.win_rate_pct and row.win_rate_pct > 50 else '#e74c3c' }}">
+              {{ row.win_rate_pct or 0 }}%
+            </span>
+          </td>
+          <td style="color:{{ '#27ae60' if (row.total_chips_won or 0) >= 0 else '#e74c3c' }}">
+            {{ '+' if (row.total_chips_won or 0) >= 0 else '' }}{{ row.total_chips_won or 0 }}
+          </td>
+        </tr>
+        {% else %}
+        <tr>
+          <td colspan="9" style="text-align:center; padding:40px; opacity:0.4">No hay partidas jugadas aún</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div style="margin-top:32px; text-align:center">
+    <a href="{{ url_for('stats.probability_theory') }}" class="btn btn--outline">∑ Ver Fundamentos Matemáticos</a>
+  </div>
+</div>
+{% endblock %}

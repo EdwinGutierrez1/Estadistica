@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}BlackJack Pro{% endblock %} | Probabilidad</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/main.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+  {% block extra_head %}{% endblock %}
+</head>
+<body>
+  <nav class="navbar">
+    <div class="container">
+      <div class="navbar__inner">
+        <a href="{{ url_for('index') }}" class="navbar__brand">
+          ♠ Black<span>Jack</span>
+        </a>
+        <div class="navbar__links">
+          <a href="{{ url_for('rooms.list_rooms') }}" class="navbar__link">Salas</a>
+          <a href="{{ url_for('stats.dashboard') }}" class="navbar__link">Estadísticas</a>
+          <a href="{{ url_for('stats.probability_theory') }}" class="navbar__link">Teoría</a>
+          {% if current_user.is_authenticated %}
+            <div class="navbar__chips">🪙 <strong>{{ current_user.chips }}</strong></div>
+            <a href="{{ url_for('auth.logout') }}" class="navbar__link">Salir</a>
+          {% else %}
+            <a href="{{ url_for('auth.login') }}" class="navbar__link btn btn--outline btn--sm">Entrar</a>
+            <a href="{{ url_for('auth.register') }}" class="navbar__link btn btn--gold btn--sm">Registro</a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <main>{% block content %}{% endblock %}</main>
+
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="{{ url_for('static', filename='js/game.js') }}"></script>
+  {% block extra_scripts %}{% endblock %}
+</body>
+</html>

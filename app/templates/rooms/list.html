@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+{% block title %}Salas{% endblock %}
+{% block content %}
+<div style="max-width:900px; margin:0 auto; padding:40px 24px">
+  <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:32px; flex-wrap:wrap; gap:16px">
+    <div>
+      <h1 style="font-family:var(--font-display); font-size:2rem; color:var(--clr-gold)">Salas Disponibles</h1>
+      <p style="opacity:0.5; font-size:0.9rem; margin-top:4px">{{ rooms|length }} salas</p>
+    </div>
+    <div style="display:flex;gap:12px;flex-wrap:wrap">
+      {% if is_global_admin %}
+      <span style="background:rgba(192,57,43,0.2);color:#e74c3c;border:1px solid rgba(192,57,43,0.3);padding:6px 14px;border-radius:50px;font-size:0.8rem;font-weight:600">
+        ADMIN GLOBAL
+      </span>
+      {% endif %}
+      <button class="btn btn--gold" onclick="showCreateModal()">+ Crear Sala</button>
+    </div>
+  </div>
+
+  {% if rooms %}
+  <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px">
+    {% for room in rooms %}
+    <div style="background:rgba(255,255,255,0.03); border:1px solid rgba(201,168,76,0.15); border-radius:16px; padding:24px; position:relative">
+
+      {% if room.status == 'active' %}
+      <div style="position:absolute;top:12px;right:12px;font-size:0.7rem;background:rgba(231,76,60,0.2);color:#e74c3c;border:1px solid rgba(231,76,60,0.3);padding:2px 8px;border-radius:50px">En juego</div>
+      {% else %}
+      <div style="position:absolute;top:12px;right:12px;font-size:0.7rem;background:rgba(39,174,96,0.15);color:#27ae60;border:1px solid rgba(39,174,96,0.3);padding:2px 8px;border-radius:50px">Abierta</div>
+      {% endif %}
+
+      <div style="font-family:var(--font-display); font-size:1.5rem; letter-spacing:0.1em; color:var(--clr-cream); margin-bottom:8px">{{ room.code }}</div>
+      <div style="font-size:0.85rem; opacity:0.6; margin-bottom:16px">
+        👥 {{ room.player_count }} / {{ room.max_players }} jugadores
+        · 🎴 {{ room.decks_count }} mazo
+      </div>
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        {% if room.status == 'waiting' %}
+          <a href="{{ url_for('rooms.join_by_token', token=room.invite_token) }}"
+             class="btn btn--outline btn--sm" style="flex:1;text-align:center">
+            Unirse
+          </a>
+        {% elif room.status == 'active' and is_global_admin %}
+          <a href="{{ url_for('game.room_lobby', room_id=room.id) }}"
+             class="btn btn--outline btn--sm" style="flex:1;text-align:center">
+            Ver partida
+          </a>
+        {% endif %}
+
+        {% if is_global_admin or room.admin_player_id == current_user.id %}
+        <button onclick="deleteRoom({{ room.id }})"
+                class="btn btn--sm"
+                style="background:rgba(192,57,43,0.2);color:#e74c3c;border:1px solid rgba(192,57,43,0.3)">
+          Eliminar
+        </button>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div style="text-align:center; padding:80px; opacity:0.4">
+    <div style="font-size:4rem; margin-bottom:16px">🃏</div>
+    <p>No hay salas disponibles. ¡Crea la primera!</p>
+  </div>
+  {% endif %}
+</div>
+
+<!-- Modal crear sala -->
+<div id="create-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:200; align-items:center; justify-content:center">
+  <div style="background:var(--clr-felt); border:1px solid rgba(201,168,76,0.3); border-radius:20px; padding:40px; width:100%; max-width:400px">
+    <h2 style="font-family:var(--font-display); color:var(--clr-gold); margin-bottom:24px">Nueva Sala</h2>
+    <div class="form-group">
+      <label class="form-label">Máximo de jugadores</label>
+      <select id="max-players" class="form-input">
+        <option value="3">3 jugadores</option>
+        <option value="4">4 jugadores</option>
+        <option value="5" selected>5 jugadores</option>
+      </select>
+    </div>
+    <div style="display:flex; gap:12px; margin-top:8px">
+      <button class="btn btn--gold" style="flex:1" onclick="createRoom()">Crear</button>
+      <button class="btn btn--outline" style="flex:1" onclick="hideCreateModal()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+function showCreateModal() { document.getElementById('create-modal').style.display = 'flex'; }
+function hideCreateModal() { document.getElementById('create-modal').style.display = 'none'; }
+
+async function createRoom() {
+  const maxPlayers = parseInt(document.getElementById('max-players').value);
+  const r = await fetch('/rooms/create', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({ max_players: maxPlayers })
+  });
+  const d = await r.json();
+  if (d.success) window.location.href = `/game/room/${d.room.id}`;
+  else showToast(d.error || 'Error al crear sala', 'error');
+}
+
+async function deleteRoom(roomId) {
+  if (!confirm('¿Eliminar esta sala?')) return;
+  const r = await fetch(`/rooms/delete/${roomId}`, { method: 'POST' });
+  const d = await r.json();
+  if (d.success) location.reload();
+  else showToast(d.error || 'Error al eliminar', 'error');
+}
+</script>
+{% endblock %}

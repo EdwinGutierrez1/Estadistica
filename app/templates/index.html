@@ -1,0 +1,29 @@
+{% extends 'base.html' %}
+{% block title %}Inicio{% endblock %}
+{% block content %}
+<section class="hero">
+  <div style="position:relative; z-index:1;">
+    <p style="font-size:0.8rem; letter-spacing:0.3em; color:var(--clr-gold); opacity:0.7; text-transform:uppercase; margin-bottom:16px">
+      Proyecto Académico · Probabilidad &amp; Estadística
+    </p>
+    <h1 class="hero__title">
+      El Arte de las
+      <span class="hero__title--accent">Probabilidades</span>
+    </h1>
+    <p class="hero__subtitle">
+      Blackjack multijugador en tiempo real con un motor matemático que
+      calcula y visualiza probabilidades dinámicas basadas en el estado
+      actual del mazo.
+    </p>
+    <div class="hero__actions">
+      {% if current_user.is_authenticated %}
+        <a href="{{ url_for('rooms.list_rooms') }}" class="btn btn--gold btn--lg">🃏 Ir a Salas</a>
+        <a href="{{ url_for('stats.probability_theory') }}" class="btn btn--outline btn--lg">∑ Ver Teoría</a>
+      {% else %}
+        <a href="{{ url_for('auth.register') }}" class="btn btn--gold btn--lg">Comenzar a Jugar</a>
+        <a href="{{ url_for('stats.probability_theory') }}" class="btn btn--outline btn--lg">∑ Fundamentos</a>
+      {% endif %}
+    </div>
+  </div>
+</section>
+{% endblock %}

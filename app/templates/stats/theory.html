@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+{% block title %}Teoría Probabilística{% endblock %}
+{% block content %}
+<div class="theory-section">
+  <h1 style="font-family:var(--font-display); font-size:2.5rem; color:var(--clr-gold); margin-bottom:8px">Modelo Probabilístico del Blackjack</h1>
+  <p style="opacity:0.6; margin-bottom:40px">Fundamentos matemáticos implementados en el sistema</p>
+
+  <h2>1. Espacio Muestral</h2>
+  <p>El experimento base es extraer una carta de un mazo estándar de 52 cartas. El espacio muestral Ω se define como:</p>
+  <div class="math-block">Ω = {(palo, valor) : palo ∈ {♠,♥,♦,♣}, valor ∈ {A,2,3,...,10,J,Q,K}}
+|Ω| = 4 × 13 = 52 elementos</div>
+
+  <h2>2. Tipo de Experimento</h2>
+  <p>El reparto de cartas es un experimento <strong>sin reemplazo</strong>: una carta extraída NO regresa al mazo.</p>
+  <div class="math-block">P(carta_k en extracción t+1 | extracciones previas C₁,...,Cₜ) ≠ P(carta_k)
+Los eventos NO son independientes.</div>
+
+  <h2>3. Modelo Probabilístico Dinámico</h2>
+  <p>En el momento t, dado el conjunto C_t de cartas ya repartidas:</p>
+  <div class="math-block">P(Xₜ₊₁ = carta_k | C_t) = n_k(t) / N(t)
+
+donde:
+  n_k(t) = cartas de tipo k restantes en el mazo
+  N(t)   = total de cartas restantes = 52 - t</div>
+
+  <h2>4. P(Bust | score actual)</h2>
+  <div class="math-block">P(bust | s) = Σ n_p(t)/N(t)  para todo p > (21 - s)
+
+Ejemplo: s = 16 → nos pasamos con cartas de puntos > 5
+P(bust|16) = [n(6)+n(7)+n(8)+n(9)+10pts+A] / N(t) ≈ 69.2%</div>
+
+  <h2>5. Valor Esperado</h2>
+  <div class="math-block">E[X] = Σ xᵢ × P(xᵢ) = Σ p × n_p(t)/N(t)  ≈ 7.31 en mazo completo</div>
+
+  <h2>6. P(Blackjack Natural)</h2>
+  <div class="math-block">P(BJ) = 2 × (4×16)/(52×51) = 128/2652 ≈ 4.83%</div>
+
+  <h2>7. Estrategia del Dealer</h2>
+  <p>El dealer pide carta mientras score &lt; 17. Esta regla determinista permite calcular exactamente la distribución de su puntuación final mediante un árbol de decisiones.</p>
+
+  <div style="margin-top:48px; text-align:center">
+    <a href="{{ url_for('rooms.list_rooms') }}" class="btn btn--gold btn--lg">🃏 Jugar con este modelo</a>
+  </div>
+</div>
+{% endblock %}
