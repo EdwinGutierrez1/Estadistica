@@ -13,19 +13,38 @@ ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'admin')
 @rooms_bp.route('/', methods=['GET'])
 @login_required
 def list_rooms():
-    rooms = Room.query.filter(Room.status != 'finished').order_by(Room.created_at.desc()).all()
-    return render_template('rooms/list.html', rooms=rooms,
-                           is_global_admin=(current_user.username == ADMIN_USERNAME))
+    q = (request.args.get('q') or '').strip()
+    query = Room.query.filter(Room.status != 'finished')
+    if q:
+        query = query.filter(Room.name.ilike(f'%{q}%'))
+    rooms = query.order_by(Room.created_at.desc()).all()
+    return render_template(
+        'rooms/list.html',
+        rooms=rooms,
+        q=q,
+        is_global_admin=(current_user.username == ADMIN_USERNAME)
+    )
 
 
 @rooms_bp.route('/create', methods=['POST'])
 @login_required
 def create_room():
-    max_players = int(request.json.get('max_players', 5))
+    payload = request.json or {}
+    max_players = int(payload.get('max_players', 5))
+    room_name = (payload.get('name') or '').strip()
+
+    if not room_name:
+        return jsonify({'error': 'El nombre de la sala es obligatorio'}), 400
+    if len(room_name) > 80:
+        return jsonify({'error': 'El nombre de la sala no puede exceder 80 caracteres'}), 400
     if not (3 <= max_players <= 5):
         return jsonify({'error': 'max_players debe ser entre 3 y 5'}), 400
 
-    room = Room(admin_player_id=current_user.id, max_players=max_players)
+    room = Room(
+        admin_player_id=current_user.id,
+        max_players=max_players,
+        name=room_name
+    )
     db.session.add(room)
     db.session.flush()
 
@@ -117,12 +136,16 @@ def leave_room(room_id: int):
         rp.is_active = False
         db.session.commit()
 
-    # Si no quedan jugadores activos, eliminar la sala
     room = Room.query.get(room_id)
+    if room:
+        _reassign_room_admin_if_needed(room)
+
+    # Si no quedan jugadores activos, eliminar la sala
     if room and room.player_count == 0:
         _delete_room_cascade(room_id)
+        return jsonify({'success': True, 'new_admin_id': None})
 
-    return jsonify({'success': True})
+    return jsonify({'success': True, 'new_admin_id': room.admin_player_id if room else None})
 
 
 @rooms_bp.route('/<int:room_id>/qr', methods=['GET'])
@@ -140,7 +163,32 @@ def _build_invite_url(token: str) -> str:
     return f"{base}/rooms/join/{token}"
 
 
-def _delete_room_cascade(room_id: int):
+def _reassign_room_admin_if_needed(room: Room):
+    if not room:
+        return None
+
+    current_admin_active = RoomPlayer.query.filter_by(
+        room_id=room.id,
+        player_id=room.admin_player_id,
+        is_active=True
+    ).first()
+
+    if current_admin_active:
+        return room.admin_player_id
+
+    next_admin_rp = (RoomPlayer.query
+                     .filter_by(room_id=room.id, is_active=True)
+                     .order_by(RoomPlayer.joined_at.asc(), RoomPlayer.seat_number.asc())
+                     .first())
+
+    if next_admin_rp:
+        room.admin_player_id = next_admin_rp.player_id
+        db.session.commit()
+        return room.admin_player_id
+
+    return None
+
+
     from app.models.room import PlayerHand, Game, ProbabilitySnapshot
     room = Room.query.get(room_id)
     if not room:

@@ -10,6 +10,52 @@ from datetime import datetime
 import functools
 
 
+def _emit_to_player(room_id: int, player_id: int, event_name: str, payload: dict):
+    sid = None
+    channel = f"room_{room_id}"
+    participants = socketio.server.manager.rooms.get('/', {}).get(channel, set())
+
+    for participant_sid in participants:
+        try:
+            sess = socketio.server.get_session(participant_sid)
+        except Exception:
+            sess = None
+
+        if sess and sess.get('_user_id') == str(player_id):
+            sid = participant_sid
+            break
+
+    if sid:
+        emit(event_name, payload, to=sid)
+
+
+def _reassign_room_admin_if_needed(room_id: int):
+    room = Room.query.get(room_id)
+    if not room:
+        return None
+
+    current_admin_active = RoomPlayer.query.filter_by(
+        room_id=room_id,
+        player_id=room.admin_player_id,
+        is_active=True
+    ).first()
+
+    if current_admin_active:
+        return room.admin_player_id
+
+    next_admin_rp = (RoomPlayer.query
+                     .filter_by(room_id=room_id, is_active=True)
+                     .order_by(RoomPlayer.joined_at.asc(), RoomPlayer.seat_number.asc())
+                     .first())
+
+    if next_admin_rp:
+        room.admin_player_id = next_admin_rp.player_id
+        db.session.commit()
+        return room.admin_player_id
+
+    return None
+
+
 def socket_authenticated(f):
     @functools.wraps(f)
     def wrapper(*args, **kwargs):
@@ -23,6 +69,9 @@ def socket_authenticated(f):
 @socketio.on('connect')
 def on_connect():
     if current_user.is_authenticated:
+        socketio.server.save_session(request.sid, {
+            '_user_id': str(current_user.id)
+        })
         emit('connected', {'message': f'Bienvenido, {current_user.username}!'})
     else:
         emit('connected', {'message': 'Conectado como anónimo'})
@@ -59,6 +108,8 @@ def on_join_room(data: dict):
             emit('error', {'message': 'No perteneces a esta sala'})
             return
 
+    _reassign_room_admin_if_needed(room_id)
+
     channel = f"room_{room_id}"
     join_room(channel)
 
@@ -68,6 +119,21 @@ def on_join_room(data: dict):
         'room':        room.to_dict(),
         'all_players': [rp2.to_dict() for rp2 in room.active_players]
     }, room=channel)
+
+    if room.status == 'active':
+        active_game = Game.query.filter_by(room_id=room_id).order_by(Game.round_number.desc()).first()
+        if active_game:
+            state = get_game_state(active_game.id)
+            if state:
+                _emit_to_player(room_id, current_user.id, 'game_started', {
+                    'game_id':      active_game.id,
+                    'round_number': active_game.round_number,
+                    'player_order': state.player_ids,
+                    'current_turn': state.current_player_id,
+                })
+                _emit_to_player(room_id, current_user.id, 'game_state', state.get_public_state(current_user.id))
+            else:
+                emit('error', {'message': 'Partida activa no disponible en memoria, recarga la sala.'})
 
 
 @socketio.on('leave_room')
@@ -83,8 +149,13 @@ def on_leave_room(data: dict):
         rp.is_active = False
         db.session.commit()
 
+    new_admin_id = _reassign_room_admin_if_needed(room_id)
+
     leave_room(channel)
-    emit('player_left', {'player_id': current_user.id}, room=channel)
+    emit('player_left', {
+        'player_id': current_user.id,
+        'new_admin_id': new_admin_id
+    }, room=channel)
 
 
 @socketio.on('start_game')
@@ -102,13 +173,19 @@ def on_start_game(data: dict):
     ADMIN_USERNAME = os.getenv('ADMIN_USERNAME', 'admin')
     is_global_admin = current_user.username == ADMIN_USERNAME
 
-    if room.admin_player_id != current_user.id and not is_global_admin:
-        emit('error', {'message': 'Solo el administrador puede iniciar'})
+    active_admin_id = _reassign_room_admin_if_needed(room_id)
+
+    if active_admin_id is None and not is_global_admin:
+        emit('error', {'message': 'No hay administrador activo para iniciar'})
+        return
+
+    if active_admin_id != current_user.id and not is_global_admin:
+        emit('error', {'message': 'Solo el administrador actual puede iniciar'})
         return
 
     active = room.active_players
     if len(active) < 3:
-        emit('error', {'message': f'Se necesitan al menos 3 jugadores. Actualmente: {len(active)}'})
+        emit('error', {'message': f'Se requieren al menos 3 jugadores para iniciar ({len(active)}/3)'})
         return
 
     if room.status != 'waiting':
@@ -155,7 +232,7 @@ def on_start_game(data: dict):
 
     for rp in active:
         public_state = state.get_public_state(rp.player_id)
-        emit('game_state', public_state, room=channel)
+        _emit_to_player(room_id, rp.player_id, 'game_state', public_state)
 
 
 @socketio.on('hit')
@@ -190,42 +267,38 @@ def on_hit(data: dict):
         )
         _save_probability_snapshot(game_id, current_user.id, new_score, prob_data, len(state.deck))
 
-    # Notificar la carta — pero solo mostrar la carta real al jugador actual
-    # A los demás mostrarla oculta
-    from app.models.room import RoomPlayer
     active_players = RoomPlayer.query.filter_by(
         room_id=state.room_id, is_active=True
     ).all()
 
     for rp in active_players:
         if rp.player_id == current_user.id:
-            # Al jugador que pidió: mostrar carta real
-            emit('card_dealt', {
+            _emit_to_player(state.room_id, rp.player_id, 'card_dealt', {
                 'player_id':      current_user.id,
                 'card':           card,
                 'new_score':      new_score,
                 'busted':         busted,
                 'probabilities':  prob_data,
                 'deck_remaining': len(state.deck),
-            }, room=channel)
+            })
         else:
-            # A los demás: mostrar carta oculta
             hidden_card = {
                 'suit': 'hidden', 'value': '?', 'numeric': 0,
                 'id': f'hidden_{current_user.id}_{len(state.player_hands[current_user.id])}'
             }
-            emit('card_dealt', {
+            _emit_to_player(state.room_id, rp.player_id, 'card_dealt', {
                 'player_id':      current_user.id,
                 'card':           hidden_card,
                 'new_score':      '?',
                 'busted':         busted,
                 'probabilities':  {},
                 'deck_remaining': len(state.deck),
-            }, room=channel)
+            })
 
     if state.phase == 'player_turns':
         emit('turn_changed', {'current_turn': state.current_player_id}, room=channel)
     elif state.phase == 'dealer_turn':
+        emit('turn_changed', {'current_turn': state.current_player_id}, room=channel)
         _run_dealer_phase(state, channel)
 
 
@@ -259,6 +332,7 @@ def on_stand(data: dict):
     if state.phase == 'player_turns':
         emit('turn_changed', {'current_turn': state.current_player_id}, room=channel)
     elif state.phase == 'dealer_turn':
+        emit('turn_changed', {'current_turn': state.current_player_id}, room=channel)
         _run_dealer_phase(state, channel)
 
 
@@ -286,6 +360,8 @@ def _run_dealer_phase(state: GameState, channel: str):
 
     for pid, result_data in results.items():
         hand = PlayerHand.query.filter_by(game_id=state.game_id, player_id=pid).first()
+        already_applied = bool(hand and hand.result is not None)
+
         if hand:
             hand.cards       = state.player_hands[pid]
             hand.final_score = result_data['score']
@@ -293,7 +369,7 @@ def _run_dealer_phase(state: GameState, channel: str):
             hand.chips_delta = result_data['chips_delta']
 
         player = Player.query.get(pid)
-        if player:
+        if player and not already_applied:
             player.chips += result_data['chips_delta']
 
     room = Room.query.get(state.room_id)

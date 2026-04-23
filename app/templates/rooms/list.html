@@ -5,7 +5,7 @@
   <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:32px; flex-wrap:wrap; gap:16px">
     <div>
       <h1 style="font-family:var(--font-display); font-size:2rem; color:var(--clr-gold)">Salas Disponibles</h1>
-      <p style="opacity:0.5; font-size:0.9rem; margin-top:4px">{{ rooms|length }} salas</p>
+      <p style="opacity:0.7; font-size:0.9rem; margin-top:4px">{{ rooms|length }} salas</p>
     </div>
     <div style="display:flex;gap:12px;flex-wrap:wrap">
       {% if is_global_admin %}
@@ -16,6 +16,21 @@
       <button class="btn btn--gold" onclick="showCreateModal()">+ Crear Sala</button>
     </div>
   </div>
+
+  <form method="GET" action="{{ url_for('rooms.list_rooms') }}" style="margin-bottom:20px; display:flex; gap:10px; flex-wrap:wrap">
+    <input
+      type="text"
+      name="q"
+      value="{{ q or '' }}"
+      class="form-input"
+      placeholder="Buscar sala por nombre..."
+      style="max-width:360px"
+    >
+    <button type="submit" class="btn btn--outline btn--sm">Buscar</button>
+    {% if q %}
+      <a href="{{ url_for('rooms.list_rooms') }}" class="btn btn--outline btn--sm">Limpiar</a>
+    {% endif %}
+  </form>
 
   {% if rooms %}
   <div style="display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:16px">
@@ -28,8 +43,9 @@
       <div style="position:absolute;top:12px;right:12px;font-size:0.7rem;background:rgba(39,174,96,0.15);color:#27ae60;border:1px solid rgba(39,174,96,0.3);padding:2px 8px;border-radius:50px">Abierta</div>
       {% endif %}
 
-      <div style="font-family:var(--font-display); font-size:1.5rem; letter-spacing:0.1em; color:var(--clr-cream); margin-bottom:8px">{{ room.code }}</div>
-      <div style="font-size:0.85rem; opacity:0.6; margin-bottom:16px">
+      <div style="font-family:var(--font-display); font-size:1.1rem; letter-spacing:0.02em; color:var(--clr-gold-light); margin-bottom:4px">{{ room.name }}</div>
+      <div style="font-family:var(--font-display); font-size:1.2rem; letter-spacing:0.1em; color:var(--clr-cream); margin-bottom:8px">{{ room.code }}</div>
+      <div style="font-size:0.85rem; opacity:0.8; margin-bottom:16px">
         👥 {{ room.player_count }} / {{ room.max_players }} jugadores
         · 🎴 {{ room.decks_count }} mazo
       </div>
@@ -48,9 +64,12 @@
         {% endif %}
 
         {% if is_global_admin or room.admin_player_id == current_user.id %}
-        <button onclick="deleteRoom({{ room.id }})"
-                class="btn btn--sm"
-                style="background:rgba(192,57,43,0.2);color:#e74c3c;border:1px solid rgba(192,57,43,0.3)">
+        <button
+          type="button"
+          data-room-id="{{ room.id }}"
+          class="btn btn--sm btn-delete-room"
+          style="background:rgba(192,57,43,0.2);color:#e74c3c;border:1px solid rgba(192,57,43,0.3);"
+        >
           Eliminar
         </button>
         {% endif %}
@@ -70,6 +89,10 @@
 <div id="create-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.8); z-index:200; align-items:center; justify-content:center">
   <div style="background:var(--clr-felt); border:1px solid rgba(201,168,76,0.3); border-radius:20px; padding:40px; width:100%; max-width:400px">
     <h2 style="font-family:var(--font-display); color:var(--clr-gold); margin-bottom:24px">Nueva Sala</h2>
+    <div class="form-group">
+      <label class="form-label">Nombre de la sala</label>
+      <input id="room-name" class="form-input" maxlength="80" placeholder="Ej. Mesa Blackjack Pro">
+    </div>
     <div class="form-group">
       <label class="form-label">Máximo de jugadores</label>
       <select id="max-players" class="form-input">
@@ -91,10 +114,17 @@ function hideCreateModal() { document.getElementById('create-modal').style.displ
 
 async function createRoom() {
   const maxPlayers = parseInt(document.getElementById('max-players').value);
+  const roomName = (document.getElementById('room-name').value || '').trim();
+
+  if (!roomName) {
+    showToast('Debes ingresar un nombre para la sala', 'error');
+    return;
+  }
+
   const r = await fetch('/rooms/create', {
     method: 'POST',
     headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify({ max_players: maxPlayers })
+    body: JSON.stringify({ max_players: maxPlayers, name: roomName })
   });
   const d = await r.json();
   if (d.success) window.location.href = `/game/room/${d.room.id}`;
@@ -108,5 +138,11 @@ async function deleteRoom(roomId) {
   if (d.success) location.reload();
   else showToast(d.error || 'Error al eliminar', 'error');
 }
+
+document.querySelectorAll('.btn-delete-room').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    deleteRoom(btn.dataset.roomId);
+  });
+});
 </script>
 {% endblock %}

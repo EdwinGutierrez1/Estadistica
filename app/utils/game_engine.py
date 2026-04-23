@@ -99,9 +99,9 @@ class GameState:
             elif dealer_bj and not is_blackjack(hand):
                 result, delta = 'lose', -bet
             elif dealer_score > 21:
-                result, delta = 'win', bet
+                result, delta = 'win', bet * 2
             elif score > dealer_score:
-                result, delta = 'win', bet
+                result, delta = 'win', bet * 2
             elif score == dealer_score:
                 result, delta = 'push', 0
             else:
@@ -126,6 +126,8 @@ class GameState:
         if (self.phase == 'player_turns' and
                 self.current_player_index < len(self.player_ids)):
             return self.player_ids[self.current_player_index]
+        if self.phase == 'dealer_turn':
+            return 'dealer'
         return None
 
     def get_public_state(self, requesting_player_id):
@@ -137,34 +139,14 @@ class GameState:
 
         players_state = {}
         for pid in self.player_ids:
-            hand  = self.player_hands[pid]
+            hand = self.player_hands[pid]
             score = calculate_hand_score(hand)
 
-            if pid == requesting_player_id:
-                # El jugador ve sus propias cartas completas
-                visible_cards = hand
-                visible_score = score
-            else:
-                # Las cartas de otros jugadores: solo la primera visible,
-                # las demás ocultas
-                visible_cards = []
-                for i, card in enumerate(hand):
-                    if i == 0:
-                        visible_cards.append(card)
-                    else:
-                        visible_cards.append({
-                            'suit': 'hidden',
-                            'value': '?',
-                            'numeric': 0,
-                            'id': f'hidden_{pid}_{i}'
-                        })
-                visible_score = '?'
-
             players_state[pid] = {
-                'cards':  visible_cards,
-                'score':  visible_score,
+                'cards': hand,
+                'score': score,
                 'busted': score > 21,
-                'done':   self.player_done[pid]
+                'done': self.player_done[pid]
             }
 
         prob_data = {}

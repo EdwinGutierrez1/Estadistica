@@ -22,7 +22,7 @@ def create_app(config_override: dict = None) -> Flask:
         f"{os.getenv('DB_PASSWORD', '')}@"
         f"{os.getenv('DB_HOST', 'localhost')}:"
         f"{os.getenv('DB_PORT', '3306')}/"
-        f"{os.getenv('DB_NAME', 'blackjack_db')}"
+        f"{os.getenv('DB_NAME', 'blackjack')}"
         f"?charset=utf8mb4"
     )
     app.config['SQLALCHEMY_DATABASE_URI'] = db_uri

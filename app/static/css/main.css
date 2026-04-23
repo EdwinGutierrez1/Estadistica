@@ -211,6 +211,25 @@ body {
 .form-input { width: 100%; background: rgba(255,255,255,0.05); border: 1px solid rgba(201,168,76,0.2); border-radius: var(--radius-sm); color: var(--clr-cream); font-family: var(--font-body); font-size: 1rem; padding: 12px var(--space-md); outline: none; transition: border-color var(--transition-fast); }
 .form-input:focus { border-color: var(--clr-gold); box-shadow: 0 0 0 3px rgba(201,168,76,0.15); }
 
+select.form-input {
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-color: rgba(22,53,32,0.95);
+  color: var(--clr-cream);
+  font-weight: 600;
+}
+select.form-input option {
+  background-color: #ffffff;
+  color: #1b1b1b;
+}
+select.form-input option:hover,
+select.form-input option:checked,
+select.form-input option:focus {
+  background-color: #2f6f4a;
+  color: #ffffff;
+}
+
 .hero { min-height: 100vh; display: flex; align-items: center; justify-content: center; text-align: center; padding: var(--space-2xl); position: relative; }
 .hero__title { font-family: var(--font-display); font-size: clamp(3rem, 8vw, 7rem); font-weight: 900; line-height: 0.95; margin-bottom: var(--space-lg); }
 .hero__title--accent { color: var(--clr-gold); display: block; }

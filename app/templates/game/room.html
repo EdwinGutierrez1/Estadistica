@@ -3,11 +3,13 @@
 
 {% block content %}
 <script>
+  {% set game_id_js = active_game.id if active_game else 'null' %}
+  {% set is_admin_js = 'true' if is_admin else 'false' %}
   window.GAME_CONFIG = {
-    roomId:   {{ room.id }},
-    gameId:   null,
+    roomId: {{ room.id }},
+    gameId: {{ game_id_js }},
     playerId: {{ player.id }},
-    isAdmin:  {{ 'true' if is_admin else 'false' }},
+    isAdmin: {{ is_admin_js }}
   };
   window.ADMIN_ID = {{ room.admin_player_id }};
 </script>
@@ -16,9 +18,12 @@
   <div class="lobby__main">
     <div style="max-width:600px">
       <p style="font-size:0.75rem; letter-spacing:0.2em; color:var(--clr-gold); opacity:0.7; text-transform:uppercase; margin-bottom:8px">Sala de Espera</p>
-      <h1 class="lobby__title">{{ room.code }}</h1>
+      <h1 class="lobby__title">{{ room.name }}</h1>
+      <div style="font-family:var(--font-display); font-size:1rem; letter-spacing:0.12em; color:var(--clr-cream); opacity:0.9; margin-bottom:10px">
+        Código: {{ room.code }}
+      </div>
       <div style="margin-bottom:24px">
-        <span style="font-size:0.85rem; opacity:0.6">{{ room.player_count }} / {{ room.max_players }} jugadores</span>
+        <span style="font-size:0.85rem; opacity:0.8">{{ room.player_count }} / {{ room.max_players }} jugadores</span>
         <span style="margin:0 12px; opacity:0.3">·</span>
         <span style="font-size:0.85rem; opacity:0.6">{{ room.decks_count }} mazo · {{ 52 * room.decks_count }} cartas</span>
       </div>
@@ -48,7 +53,7 @@
       {% if is_admin %}
       <div style="margin-top:24px">
         <button id="btn-start" class="btn btn--gold btn--lg" {% if room.player_count < 3 %}disabled{% endif %}>
-          {% if room.player_count < 3 %}Esperando jugadores (mín. 3){% else %}🃏 Iniciar Partida{% endif %}
+          {% if room.player_count < 3 %}Esperando mínimo 3 jugadores ({{ room.player_count }}/3){% else %}🃏 Iniciar Partida{% endif %}
         </button>
         <p style="font-size:0.75rem; opacity:0.5; margin-top:8px">Solo el administrador puede iniciar.</p>
       </div>

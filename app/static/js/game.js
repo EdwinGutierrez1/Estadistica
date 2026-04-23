@@ -208,6 +208,7 @@ class GameController {
     s.onPlayerJoined = (data) => {
       this.players[data.player.id] = data.player;
       this._renderLobbyPlayers(data.all_players);
+      this._syncStartButton(data.room);
       showToast(`${data.player.username} se unió a la sala`);
     };
 
@@ -228,7 +229,10 @@ class GameController {
       showToast('¡La partida ha comenzado!', 'success');
     };
 
-    s.onGameState = (data) => { this._renderFullState(data); };
+    s.onGameState = (data) => {
+      this._showGameTable();
+      this._renderFullState(data);
+    };
 
     s.onCardDealt = (data) => {
       this.cardCount++;
@@ -346,17 +350,21 @@ class GameController {
 
   _renderFullState(state) {
     const dealerCards = document.getElementById('dealer-cards');
-    if (dealerCards) dealerCards.innerHTML = renderCardHand(state.dealer.cards);
+    if (dealerCards) dealerCards.innerHTML = renderCardHand((state.dealer && state.dealer.cards) || []);
     const dealerScore = document.getElementById('dealer-score');
-    if (dealerScore) dealerScore.textContent = state.dealer.score;
+    if (dealerScore) dealerScore.textContent = (state.dealer && state.dealer.score !== undefined) ? state.dealer.score : '–';
 
-    Object.entries(state.players).forEach(([pid, pstate]) => {
+    Object.entries(state.players || {}).forEach(([pid, pstate]) => {
       const cardsEl = document.getElementById(`cards-${pid}`);
       const scoreEl = document.getElementById(`score-${pid}`);
-      if (cardsEl) cardsEl.innerHTML = renderCardHand(pstate.cards);
-      if (scoreEl) scoreEl.textContent = pstate.score;
+      if (cardsEl) cardsEl.innerHTML = renderCardHand(pstate.cards || []);
+      if (scoreEl) scoreEl.textContent = pstate.score ?? '–';
+
+      const seatEl = document.getElementById(`seat-${pid}`);
+      if (seatEl) seatEl.classList.remove('player-seat--bust');
+      if (scoreEl) scoreEl.className = 'player-seat__score';
+
       if (pstate.busted) {
-        const seatEl = document.getElementById(`seat-${pid}`);
         if (seatEl) seatEl.classList.add('player-seat--bust');
         if (scoreEl) scoreEl.className = 'player-seat__score player-seat__score--bust';
       }
@@ -390,6 +398,18 @@ class GameController {
     const standBtn = document.getElementById('btn-stand');
     if (hitBtn)   hitBtn.disabled   = !enabled;
     if (standBtn) standBtn.disabled = !enabled;
+  }
+
+  _syncStartButton(roomData) {
+    if (!this.isAdmin || !roomData) return;
+    const startBtn = document.getElementById('btn-start');
+    if (!startBtn) return;
+
+    const canStart = roomData.player_count >= 3;
+    startBtn.disabled = !canStart;
+    startBtn.textContent = canStart
+      ? '🃏 Iniciar Partida'
+      : `Esperando mínimo 3 jugadores (${roomData.player_count}/3)`;
   }
 
   _showGameTable() {

@@ -22,6 +22,7 @@ class Room(db.Model):
     admin_player_id = db.Column(db.Integer, db.ForeignKey('players.id'), nullable=False)
     status          = db.Column(db.Enum('waiting','active','finished'),
                                 nullable=False, default='waiting')
+    name            = db.Column(db.String(80), nullable=False, default='Sala sin nombre')
     max_players     = db.Column(db.Integer, nullable=False, default=5)
     decks_count     = db.Column(db.Integer, nullable=False, default=1)
     invite_token    = db.Column(db.String(64), nullable=False, unique=True,
@@ -46,6 +47,7 @@ class Room(db.Model):
         return {
             'id':           self.id,
             'code':         self.code,
+            'name':         self.name,
             'status':       self.status,
             'player_count': self.player_count,
             'max_players':  self.max_players,
