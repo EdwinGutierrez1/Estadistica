@@ -122,8 +122,51 @@
   </div>
 
   <div class="side-panel">
-    <div class="prob-panel">
-      <div class="prob-panel__title">Probabilidades</div>
+
+    
+  {# MODELO 1: Gauge semicircular de P(Ganar)  #}
+    <div class="prob-panel" style="padding:14px 14px 10px">
+      <div class="prob-panel__title" style="font-size:0.75rem; margin-bottom:6px">Modelo en Tiempo Real</div>
+
+      
+  {# Gauge  #}
+      <div style="position:relative; height:90px; margin-bottom:4px">
+        <canvas id="prob-gauge"></canvas>
+        <div style="position:absolute;bottom:4px;left:0;right:0;text-align:center">
+          <div id="gauge-center-label" style="font-family:var(--font-display);font-size:1.5rem;font-weight:700;color:rgba(245,239,224,0.5);line-height:1">–</div>
+          <div style="font-size:0.6rem;opacity:0.45;letter-spacing:0.1em;text-transform:uppercase">P(Ganar)</div>
+        </div>
+        <!-- Popover del gauge — se muestra al hacer hover -->
+        <div id="gauge-popover" style="
+          display:none;
+          position:absolute;
+          right:calc(100% + 10px);
+          top:0;
+          width:230px;
+          background:rgba(10,10,10,0.97);
+          border:1px solid rgba(201,168,76,0.3);
+          border-radius:10px;
+          padding:12px;
+          z-index:200;
+          box-shadow:0 8px 32px rgba(0,0,0,0.6);
+          pointer-events:none;
+        "></div>
+      </div>
+
+      
+  {# Leyenda gauge  #}
+      <div style="display:flex;gap:8px;justify-content:center;margin-bottom:10px;flex-wrap:wrap">
+        <span style="font-size:0.65rem;display:flex;align-items:center;gap:3px;opacity:0.8"><span style="width:8px;height:8px;border-radius:50%;background:#27ae60;display:inline-block"></span>Ganar</span>
+        <span style="font-size:0.65rem;display:flex;align-items:center;gap:3px;opacity:0.8"><span style="width:8px;height:8px;border-radius:50%;background:#e74c3c;display:inline-block"></span>Bust</span>
+        <span style="font-size:0.65rem;display:flex;align-items:center;gap:3px;opacity:0.8"><span style="width:8px;height:8px;border-radius:50%;background:#f39c12;display:inline-block"></span>Empate</span>
+      </div>
+
+      
+  {# Recomendación  #}
+      <div id="prob-recommendation" style="text-align:center;padding:8px 10px;border-radius:8px;border:1px solid transparent;font-size:0.8rem;letter-spacing:0.04em;transition:all 0.4s;margin-bottom:10px">–</div>
+
+      
+  {# Barras de probabilidad  #}
       <div class="prob-bar-group">
         <div class="prob-bar-label">
           <span class="prob-bar-label__name">P(Ganar)</span>
@@ -152,18 +195,28 @@
         </div>
         <div class="prob-bar-track"><div class="prob-bar-fill prob-bar-fill--push" style="width:0%"></div></div>
       </div>
-      <div style="margin-top:12px; padding-top:12px; border-top:1px solid rgba(255,255,255,0.06); font-size:0.78rem; opacity:0.6">
-        Valor esperado próxima carta: <strong id="expected-value" style="color:var(--clr-gold-light)">–</strong>
+
+      <div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.06);font-size:0.75rem;display:flex;justify-content:space-between;align-items:center">
+        <span style="opacity:0.55">Pedir sin bust:</span>
+        <strong id="safe-hit-val" style="color:var(--clr-gold-light)">–</strong>
+      </div>
+      <div style="margin-top:6px;font-size:0.75rem;display:flex;justify-content:space-between;align-items:center">
+        <span style="opacity:0.55">Valor esp. próx. carta:</span>
+        <strong id="expected-value" style="color:var(--clr-gold-light)">–</strong>
       </div>
     </div>
 
+    
+  {# MODELO 2: Evolución temporal (gráfico de líneas)  #}
     <div class="prob-panel" style="padding:12px">
-      <div class="prob-panel__title" style="font-size:0.8rem; margin-bottom:8px">Evolución</div>
+      <div class="prob-panel__title" style="font-size:0.75rem; margin-bottom:8px">Evolución por Carta</div>
       <div class="chart-container"><canvas id="prob-chart"></canvas></div>
     </div>
 
+    
+  {# MODELO 3: Distribución del mazo restante  #}
     <div class="prob-panel">
-      <div class="prob-panel__title" style="font-size:0.8rem">Distribución del Mazo</div>
+      <div class="prob-panel__title" style="font-size:0.75rem">Distribución del Mazo Restante</div>
       <div id="deck-distribution" class="deck-distribution"></div>
     </div>
   </div>

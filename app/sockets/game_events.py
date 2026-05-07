@@ -297,6 +297,7 @@ def on_hit(data: dict):
 
     if state.phase == 'player_turns':
         emit('turn_changed', {'current_turn': state.current_player_id}, room=channel)
+        _emit_probs_to_current_player(state)
     elif state.phase == 'dealer_turn':
         emit('turn_changed', {'current_turn': state.current_player_id}, room=channel)
         _run_dealer_phase(state, channel)
@@ -331,6 +332,7 @@ def on_stand(data: dict):
 
     if state.phase == 'player_turns':
         emit('turn_changed', {'current_turn': state.current_player_id}, room=channel)
+        _emit_probs_to_current_player(state)
     elif state.phase == 'dealer_turn':
         emit('turn_changed', {'current_turn': state.current_player_id}, room=channel)
         _run_dealer_phase(state, channel)
@@ -405,6 +407,26 @@ def on_request_qr(data: dict):
         'qr':   qr_base64,
         'url':  invite_url,
         'code': room.code
+    })
+
+def _emit_probs_to_current_player(state):
+    """Al cambiar de turno, envía las probabilidades iniciales al jugador que ahora juega."""
+    pid = state.current_player_id
+    if not pid or pid == 'dealer':
+        return
+    if pid not in state.player_hands or len(state.player_hands[pid]) == 0:
+        return
+    if len(state.dealer_hand) == 0:
+        return
+    dealer_visible = state.dealer_hand[0]
+    prob_data = compute_probabilities_for_player(
+        state.player_hands[pid],
+        dealer_visible,
+        state.deck
+    )
+    _emit_to_player(state.room_id, pid, 'prob_update', {
+        'probabilities': prob_data,
+        'deck_remaining': len(state.deck),
     })
 
 

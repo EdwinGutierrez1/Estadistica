@@ -110,7 +110,9 @@ class GameState:
             self.results[pid] = {
                 'result':      result,
                 'chips_delta': delta,
-                'score':       score
+                'score':       score,
+                'cards':       hand,
+                'card_count':  len(hand)
             }
 
         self.phase = 'finished'
