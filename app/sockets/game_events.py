@@ -325,10 +325,14 @@ def on_stand(data: dict):
         emit('error', {'message': str(e)})
         return
 
-    emit('player_stood', {
-        'player_id': current_user.id,
-        'score':     calculate_hand_score(state.player_hands[current_user.id])
-    }, room=channel)
+    # Emitir score real solo al propio jugador; ocultar para los demás
+    real_score = calculate_hand_score(state.player_hands[current_user.id])
+    stood_active = RoomPlayer.query.filter_by(room_id=state.room_id, is_active=True).all()
+    for _rp in stood_active:
+        _emit_to_player(state.room_id, _rp.player_id, 'player_stood', {
+            'player_id': current_user.id,
+            'score':     real_score if _rp.player_id == current_user.id else '?'
+        })
 
     if state.phase == 'player_turns':
         emit('turn_changed', {'current_turn': state.current_player_id}, room=channel)

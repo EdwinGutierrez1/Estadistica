@@ -144,12 +144,28 @@ class GameState:
             hand = self.player_hands[pid]
             score = calculate_hand_score(hand)
 
-            players_state[pid] = {
-                'cards': hand,
-                'score': score,
-                'busted': score > 21,
-                'done': self.player_done[pid]
-            }
+            if pid == requesting_player_id:
+                # El jugador ve sus propias cartas completas
+                players_state[pid] = {
+                    'cards': hand,
+                    'score': score,
+                    'busted': score > 21,
+                    'done': self.player_done[pid],
+                    'is_me': True
+                }
+            else:
+                # Los otros jugadores solo muestran cuántas cartas tienen, ocultas
+                hidden_cards = [
+                    {'suit': 'hidden', 'value': '?', 'numeric': 0, 'id': f'hidden_{pid}_{i}'}
+                    for i in range(len(hand))
+                ]
+                players_state[pid] = {
+                    'cards': hidden_cards,
+                    'score': '?',
+                    'busted': False,
+                    'done': self.player_done[pid],
+                    'is_me': False
+                }
 
         prob_data = {}
         if (requesting_player_id in self.player_hands and

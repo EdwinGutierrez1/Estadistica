@@ -427,7 +427,11 @@ class GameController {
     };
 
     s.onPlayerStood = (data) => {
-      showToast(`${this._getPlayerName(data.player_id)} se plantó con ${data.score}`);
+      const scoreEl = document.getElementById(`score-${data.player_id}`);
+      if (scoreEl) scoreEl.textContent = data.score;
+      const isMe = data.player_id == this.playerId;
+      const scoreDisplay = isMe ? data.score : '?';
+      showToast(`${this._getPlayerName(data.player_id)} se plantó con ${scoreDisplay}`);
     };
 
     s.onTurnChanged = (data) => {
@@ -486,6 +490,17 @@ class GameController {
 
     s.onGameFinished = (data) => {
       this._setActionButtons(false);
+      // Revelar cartas de todos los jugadores al finalizar la partida
+      if (data.results) {
+        Object.entries(data.results).forEach(([pid, res]) => {
+          if (pid != this.playerId && res.cards) {
+            const cardsEl = document.getElementById(`cards-${pid}`);
+            const scoreEl = document.getElementById(`score-${pid}`);
+            if (cardsEl) cardsEl.innerHTML = renderCardHand(res.cards);
+            if (scoreEl) scoreEl.textContent = res.score;
+          }
+        });
+      }
       // Esperar a que terminen las animaciones del dealer antes de mostrar resultado
       const wait = this._dealerAnimationMs || 1200;
       setTimeout(() => {
