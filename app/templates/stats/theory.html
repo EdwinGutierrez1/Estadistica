@@ -15,7 +15,12 @@
   <div class="math-block">P(carta_k en extracción t+1 | extracciones previas C₁,...,Cₜ) ≠ P(carta_k)
 Los eventos NO son independientes.</div>
 
-  <h2>3. Modelo Probabilístico Dinámico</h2>
+  <h2>3. Modelo Utilizado: Árbol de Decisión Condicional con Probabilidades Ponderadas</h2>
+  <p>El sistema implementa un <strong>árbol de decisión condicional probabilístico</strong>, donde cada rama representa una posible carta futura y cada transición se pondera según la probabilidad real de extracción en el mazo actual.</p>
+  <div class="math-block">P(rama_i) = \prod_{t=1}^{n} P(carta_t | C_t)\n\nP(carta_t | C_t) = n_k(t) / N(t)</div>
+  <p>El modelo simula múltiples estados futuros del dealer y del jugador utilizando probabilidades condicionales. Cada resultado posible (ganar, perder, empate o bust) se calcula recorriendo el árbol y sumando las probabilidades acumuladas de cada rama.</p>
+
+  <h2>4. Modelo Probabilístico Dinámico</h2>
   <p>En el momento t, dado el conjunto C_t de cartas ya repartidas:</p>
   <div class="math-block">P(Xₜ₊₁ = carta_k | C_t) = n_k(t) / N(t)
 
@@ -23,19 +28,19 @@ donde:
   n_k(t) = cartas de tipo k restantes en el mazo
   N(t)   = total de cartas restantes = 52 - t</div>
 
-  <h2>4. P(Bust | score actual)</h2>
+  <h2>5. P(Bust | score actual)</h2>
   <div class="math-block">P(bust | s) = Σ n_p(t)/N(t)  para todo p > (21 - s)
 
 Ejemplo: s = 16 → nos pasamos con cartas de puntos &gt; 5
 P(bust|16) = [n(6)+n(7)+n(8)+n(9)+10pts+A] / N(t) ≈ 69.2%</div>
 
-  <h2>5. Valor Esperado</h2>
+  <h2>6. Valor Esperado</h2>
   <div class="math-block">E[X] = Σ xᵢ × P(xᵢ) = Σ p × n_p(t)/N(t)  ≈ 7.31 en mazo completo</div>
 
-  <h2>6. P(Blackjack Natural)</h2>
+  <h2>7. P(Blackjack Natural)</h2>
   <div class="math-block">P(BJ) = 2 × (4×16)/(52×51) = 128/2652 ≈ 4.83%</div>
 
-  <h2>7. Estrategia del Dealer</h2>
+  <h2>8. Estrategia del Dealer</h2>
   <p>El dealer pide carta mientras score &lt; 17. Esta regla determinista permite calcular exactamente la distribución de su puntuación final mediante un árbol de decisiones.</p>
 
   <div style="margin-top:48px;text-align:center">

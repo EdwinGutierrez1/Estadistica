@@ -103,10 +103,12 @@ class ProbabilityUI {
   constructor() {
     this.chart = null;
     this.gaugeChart = null;
+    this.gaugeChartMob = null;
     this.chartData = { labels: [], win: [], bust: [], push: [], lose: [] };
     this.lastProbs = null;
     this._initChart();
     this._initGauge();
+    this._initGaugeMob();
   }
 
   _initChart() {
@@ -156,6 +158,32 @@ class ProbabilityUI {
   _initGauge() {
     const canvas = document.getElementById('prob-gauge');
     if (!canvas || typeof Chart === 'undefined') return;
+
+    // Crear popover directo en body para garantizar centrado real en pantalla
+    let pop = document.getElementById('gauge-popover');
+    if (!pop) {
+      pop = document.createElement('div');
+      pop.id = 'gauge-popover';
+      Object.assign(pop.style, {
+        display:         'none',
+        position:        'fixed',
+        top:             '50%',
+        left:            '50%',
+        transform:       'translate(-50%, -50%)',
+        width:           'min(440px, 92vw)',
+        background:      'rgba(8,8,8,0.97)',
+        border:          '1px solid rgba(201,168,76,0.45)',
+        borderRadius:    '14px',
+        padding:         '22px 24px',
+        zIndex:          '99999',
+        boxShadow:       '0 24px 64px rgba(0,0,0,0.85)',
+        backdropFilter:  'blur(10px)',
+        pointerEvents:   'none',
+        transition:      'opacity 0.18s ease',
+      });
+      document.body.appendChild(pop);
+    }
+
     const ctx = canvas.getContext('2d');
     this.gaugeChart = new Chart(ctx, {
       type: 'doughnut',
@@ -182,16 +210,15 @@ class ProbabilityUI {
     // Popover de hover sobre el gauge
     canvas.addEventListener('mousemove', (e) => {
       const pop = document.getElementById('gauge-popover');
-      if (!pop || !this.lastProbs) return;
-      const rect = canvas.getBoundingClientRect();
-      const p = this.lastProbs;
-      const score   = p.current_score ?? '?';
-      const n       = p.cards_remaining ?? '?';
-      const win     = ((p.prob_win  || 0) * 100).toFixed(1);
-      const bust    = ((p.prob_bust || 0) * 100).toFixed(1);
-      const push    = ((p.prob_push || 0) * 100).toFixed(1);
-      const lose    = ((p.prob_lose || 0) * 100).toFixed(1);
-      const safe    = ((p.prob_safe_hit || 0) * 100).toFixed(1);
+      if (!pop) return;
+      const p     = this.lastProbs || {};
+      const score = p.current_score    ?? '–';
+      const n     = p.cards_remaining  ?? '–';
+      const win   = ((p.prob_win       || 0) * 100).toFixed(1);
+      const bust  = ((p.prob_bust      || 0) * 100).toFixed(1);
+      const push  = ((p.prob_push      || 0) * 100).toFixed(1);
+      const lose  = ((p.prob_lose      || 0) * 100).toFixed(1);
+      const safe  = ((p.prob_safe_hit  || 0) * 100).toFixed(1);
       pop.innerHTML = `
         <div style="font-size:0.65rem;color:var(--clr-gold);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;font-weight:700">
           Modelo 3 — Árbol Condicional del Dealer
@@ -201,10 +228,22 @@ class ProbabilityUI {
           usando un árbol de decisiones de profundidad 3.<br>
           Pondera cada rama por su probabilidad en el mazo actual.
         </div>
-        <div style="font-size:0.65rem;color:rgba(245,239,224,0.4);margin-bottom:6px;font-family:monospace">
-          P(Ganar) = Σ P(rama) donde dealer pierde<br>
-          P(Bust)  = cartas &gt; ${21 - score} / ${n} restantes<br>
-          P(Empate)= Σ P(rama) donde dealer = ${score}
+        <div style="font-size:0.65rem;color:rgba(245,239,224,0.55);margin-bottom:8px;font-family:monospace;line-height:1.5">
+          <strong style="color:#c9a84c">Fórmulas utilizadas:</strong><br><br>
+
+          P(Ganar) = Σ P(ramaᵢ)<br>
+          donde dealer bust o dealer &lt; jugador<br><br>
+
+          P(Perder) = Σ P(ramaᵢ)<br>
+          donde dealer &gt; jugador<br><br>
+
+          P(Empate) = Σ P(ramaᵢ)<br>
+          donde dealer = ${score}<br><br>
+
+          P(Bust) = cartas que exceden 21<br>
+          ÷ cartas restantes (${n})<br><br>
+
+          P(rama) = Π P(cartaⱼ)
         </div>
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px 10px;font-size:0.72rem">
           <span style="color:#27ae60">● Ganar</span><strong style="color:#27ae60;text-align:right">${win}%</strong>
@@ -222,18 +261,97 @@ class ProbabilityUI {
           <span style="opacity:0.5">P(carta segura) M1:</span><strong style="color:#27ae60">${safe}%</strong>
         </div>
       `;
-      // Posicionar el popover a la derecha del canvas
-      const panelRect = canvas.closest('.side-panel').getBoundingClientRect();
       pop.style.display = 'block';
-      pop.style.top  = `${rect.top  - panelRect.top  + rect.height / 2 - 20}px`;
+      pop.style.opacity = '1';
     });
 
     canvas.addEventListener('mouseleave', () => {
       const pop = document.getElementById('gauge-popover');
       if (pop) pop.style.display = 'none';
     });
-  }
 
+    // ── Touch support para móvil ──
+    const showPopoverAt = (clientX, clientY) => {
+      const pop = document.getElementById('gauge-popover');
+      if (!pop || !this.lastProbs) return;
+      const p = this.lastProbs;
+      const score = p.current_score ?? '?';
+      const n     = p.cards_remaining ?? '?';
+      const win   = ((p.prob_win  || 0) * 100).toFixed(1);
+      const bust  = ((p.prob_bust || 0) * 100).toFixed(1);
+      const push  = ((p.prob_push || 0) * 100).toFixed(1);
+      const lose  = ((p.prob_lose || 0) * 100).toFixed(1);
+      const safe  = ((p.prob_safe_hit || 0) * 100).toFixed(1);
+      pop.innerHTML = `
+        <div style="font-size:0.65rem;color:var(--clr-gold);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;font-weight:700">
+          Modelo 3 — Árbol Condicional del Dealer
+        </div>
+        <div style="font-size:0.68rem;opacity:0.55;margin-bottom:8px;line-height:1.5">
+          Simula las jugadas del dealer (regla: pide si score &lt; 17)<br>
+          usando un árbol de decisiones de profundidad 3.<br>
+          Pondera cada rama por su probabilidad en el mazo actual.
+        </div>
+        <div style="font-size:0.65rem;color:rgba(245,239,224,0.55);margin-bottom:8px;font-family:monospace;line-height:1.5">
+          <strong style="color:#c9a84c">Fórmulas utilizadas:</strong><br><br>
+          P(Ganar) = Σ P(ramaᵢ)<br>
+          donde dealer bust o dealer &lt; jugador<br><br>
+          P(Perder) = Σ P(ramaᵢ)<br>
+          donde dealer &gt; jugador<br><br>
+          P(Empate) = Σ P(ramaᵢ)<br>
+          donde dealer = ${score}<br><br>
+          P(Bust) = cartas que exceden 21<br>
+          ÷ cartas restantes (${n})<br><br>
+          P(rama) = Π P(cartaⱼ)
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px 10px;font-size:0.72rem">
+          <span style="color:#27ae60">● Ganar</span><strong style="color:#27ae60;text-align:right">${win}%</strong>
+          <span style="color:#e74c3c">● Bust</span><strong style="color:#e74c3c;text-align:right">${bust}%</strong>
+          <span style="color:#f39c12">● Empate</span><strong style="color:#f39c12;text-align:right">${push}%</strong>
+          <span style="color:#c0392b;opacity:0.8">● Perder</span><strong style="color:#c0392b;text-align:right">${lose}%</strong>
+        </div>
+        <div style="margin-top:7px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.08);font-size:0.68rem;display:flex;justify-content:space-between">
+          <span style="opacity:0.5">Score actual:</span><strong>${score}</strong>
+        </div>
+        <div style="font-size:0.68rem;display:flex;justify-content:space-between">
+          <span style="opacity:0.5">Cartas restantes:</span><strong>${n}</strong>
+        </div>
+        <div style="font-size:0.68rem;display:flex;justify-content:space-between">
+          <span style="opacity:0.5">P(carta segura) M1:</span><strong style="color:#27ae60">${safe}%</strong>
+        </div>
+        <div style="margin-top:8px;text-align:center;font-size:0.6rem;opacity:0.4">(Toca fuera para cerrar)</div>
+      `;
+      pop.style.display   = 'block';
+      pop.style.position  = 'fixed';
+      pop.style.zIndex    = '9999';
+      pop.style.maxWidth  = '300px';
+      pop.style.width     = 'calc(100vw - 32px)';
+      pop.style.pointerEvents = 'auto';   // necesario en touch para cerrar
+      // Centrado vertical bajo el toque
+      const pw = Math.min(300, window.innerWidth - 32);
+      let left = clientX - pw / 2;
+      left = Math.max(8, Math.min(left, window.innerWidth - pw - 8));
+      let top  = clientY + 14;
+      if (top + 260 > window.innerHeight) top = clientY - 270;
+      pop.style.left = `${left}px`;
+      pop.style.top  = `${top}px`;
+      pop.style.opacity    = '1';
+      pop.style.visibility = 'visible';
+    };
+
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const t = e.touches[0];
+      showPopoverAt(t.clientX, t.clientY);
+    }, { passive: false });
+
+    // Cerrar al tocar fuera del popover
+    document.addEventListener('touchstart', (e) => {
+      const pop = document.getElementById('gauge-popover');
+      if (pop && pop.style.display !== 'none' && !pop.contains(e.target) && e.target !== canvas) {
+        pop.style.display = 'none';
+      }
+    });
+  }  // ← cierre de _initGauge()
 
   update(probs, cardNum) {
     if (!probs) return;
@@ -274,6 +392,10 @@ class ProbabilityUI {
       this.chart.update();
     }
 
+    
+    // ── Panel inline móvil: actualizar todos los valores ──
+    this._updateMobilePanel(probs);
+
     if (probs.deck_distribution) this._updateDeckDistribution(probs.deck_distribution);
   }
 
@@ -286,6 +408,17 @@ class ProbabilityUI {
     this.gaugeChart.data.datasets[0].data = [win, bust, push, rest];
     this.gaugeChart.update();
 
+    // Gauge móvil
+    if (this.gaugeChartMob) {
+      this.gaugeChartMob.data.datasets[0].data = [win, bust, push, rest];
+      this.gaugeChartMob.update();
+    }
+    const labelMob = document.getElementById('gauge-center-label-mob');
+    if (labelMob) {
+      labelMob.textContent = `${win.toFixed(0)}%`;
+      labelMob.style.color = win > 50 ? '#27ae60' : win > 30 ? '#f39c12' : '#e74c3c';
+    }
+
     // Centro del gauge
     const label = document.getElementById('gauge-center-label');
     if (label) {
@@ -296,6 +429,87 @@ class ProbabilityUI {
     // Cursor de ayuda para indicar que tiene hover
     const canvas = document.getElementById('prob-gauge');
     if (canvas) canvas.style.cursor = 'help';
+  }
+
+  _initGaugeMob() {
+    const canvas = document.getElementById('prob-gauge-mob');
+    if (!canvas || typeof Chart === 'undefined') return;
+    const ctx = canvas.getContext('2d');
+    this.gaugeChartMob = new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        datasets: [{
+          data: [0, 0, 0, 100],
+          backgroundColor: ['#27ae60', '#e74c3c', '#f39c12', 'rgba(255,255,255,0.05)'],
+          borderWidth: 0,
+          hoverOffset: 0,
+        }]
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        cutout: '70%',
+        rotation: -90, circumference: 180,
+        animation: { duration: 600, easing: 'easeInOutCubic' },
+        plugins: { legend: { display: false }, tooltip: { enabled: false } }
+      }
+    });
+
+    // Touch para mostrar fórmula en móvil
+    canvas.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const t = e.touches[0];
+      const pop = document.getElementById('gauge-popover');
+      if (!pop || !this.lastProbs) return;
+      const p = this.lastProbs;
+      const score = p.current_score ?? '?';
+      const n     = p.cards_remaining ?? '?';
+      const win   = ((p.prob_win  || 0) * 100).toFixed(1);
+      const bust  = ((p.prob_bust || 0) * 100).toFixed(1);
+      const push  = ((p.prob_push || 0) * 100).toFixed(1);
+      const lose  = ((p.prob_lose || 0) * 100).toFixed(1);
+      const safe  = ((p.prob_safe_hit || 0) * 100).toFixed(1);
+      pop.innerHTML = `
+        <div style="font-size:0.65rem;color:var(--clr-gold);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:6px;font-weight:700">
+          Modelo 3 — Árbol Condicional del Dealer
+        </div>
+        <div style="font-size:0.68rem;opacity:0.55;margin-bottom:8px;line-height:1.5">
+          Simula las jugadas del dealer (regla: pide si score &lt; 17)<br>
+          usando un árbol de decisiones de profundidad 3.<br>
+          Pondera cada rama por su probabilidad en el mazo actual.
+        </div>
+        <div style="font-size:0.65rem;color:rgba(245,239,224,0.55);margin-bottom:8px;font-family:monospace;line-height:1.5">
+          <strong style="color:#c9a84c">Fórmulas:</strong><br><br>
+          P(Ganar) = Σ P(ramaᵢ) dealer bust o &lt; jugador<br>
+          P(Perder) = Σ P(ramaᵢ) dealer &gt; jugador<br>
+          P(Empate) = Σ P(ramaᵢ) dealer = ${score}<br>
+          P(Bust) = cartas &gt;21 ÷ ${n} restantes<br>
+          P(rama) = Π P(cartaⱼ)
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:3px 10px;font-size:0.72rem">
+          <span style="color:#27ae60">● Ganar</span><strong style="color:#27ae60;text-align:right">${win}%</strong>
+          <span style="color:#e74c3c">● Bust</span><strong style="color:#e74c3c;text-align:right">${bust}%</strong>
+          <span style="color:#f39c12">● Empate</span><strong style="color:#f39c12;text-align:right">${push}%</strong>
+          <span style="color:#c0392b;opacity:0.8">● Perder</span><strong style="color:#c0392b;text-align:right">${lose}%</strong>
+        </div>
+        <div style="margin-top:7px;padding-top:6px;border-top:1px solid rgba(255,255,255,0.08);font-size:0.68rem;display:flex;justify-content:space-between">
+          <span style="opacity:0.5">P(carta segura):</span><strong style="color:#27ae60">${safe}%</strong>
+        </div>
+        <div style="margin-top:8px;text-align:center;font-size:0.6rem;opacity:0.4">(Toca fuera para cerrar)</div>
+      `;
+      pop.style.display = 'block';
+      pop.style.position = 'fixed';
+      pop.style.zIndex = '9999';
+      pop.style.maxWidth = '300px';
+      pop.style.width = 'calc(100vw - 32px)';
+      pop.style.pointerEvents = 'auto';
+      const pw = Math.min(300, window.innerWidth - 32);
+      let left = t.clientX - pw / 2;
+      left = Math.max(8, Math.min(left, window.innerWidth - pw - 8));
+      let top = t.clientY + 14;
+      if (top + 260 > window.innerHeight) top = t.clientY - 270;
+      pop.style.left = `${left}px`;
+      pop.style.top  = `${top}px`;
+    }, { passive: false });
   }
 
   _updateRecommendation(probs) {
@@ -315,6 +529,42 @@ class ProbabilityUI {
   _updateValue(id, value) {
     const el = document.getElementById(id);
     if (el) el.textContent = `${((value || 0) * 100).toFixed(1)}%`;
+  }
+
+  _updateMobilePanel(probs) {
+    const fmt = v => `${((v || 0) * 100).toFixed(1)}%`;
+    const colorWin  = (probs.prob_win  || 0) > 0.5 ? '#27ae60' : '#e74c3c';
+
+    // Barras del panel inline
+    const setBar = (name, val) => {
+      const fills = document.querySelectorAll(`.inline-prob-panel .prob-bar-fill--${name}`);
+      fills.forEach(f => f.style.width = `${Math.round((val||0)*100)}%`);
+    };
+    setBar('win',  probs.prob_win);
+    setBar('lose', probs.prob_lose);
+    setBar('bust', probs.prob_bust);
+    setBar('push', probs.prob_push);
+
+    // Valores numéricos -mob
+    const setVal = (id, val) => { const el = document.getElementById(id); if (el) el.textContent = fmt(val); };
+    setVal('prob-win-val-mob',  probs.prob_win);
+    setVal('prob-lose-val-mob', probs.prob_lose);
+    setVal('prob-bust-val-mob', probs.prob_bust);
+    setVal('prob-push-val-mob', probs.prob_push);
+
+    // Safe-hit y expected value móvil
+    const shMob = document.getElementById('safe-hit-val-mob');
+    if (shMob && probs.prob_safe_hit != null) {
+      shMob.textContent = fmt(probs.prob_safe_hit);
+      shMob.style.color = probs.prob_safe_hit > 0.5 ? '#27ae60' : '#e74c3c';
+    }
+    const evMob = document.getElementById('expected-value-mob');
+    if (evMob && probs.expected_value != null) evMob.textContent = probs.expected_value.toFixed(1);
+
+    // Recomendación móvil
+    const recMob = document.getElementById('prob-recommendation-mob');
+    const recDesk = document.getElementById('prob-recommendation');
+    if (recMob && recDesk) recMob.textContent = recDesk.textContent;
   }
 
   _updateDeckDistribution(distribution) {
@@ -353,8 +603,19 @@ class ProbabilityUI {
       this.gaugeChart.data.datasets[0].data = [0, 0, 0, 100];
       this.gaugeChart.update();
     }
+    if (this.gaugeChartMob) {
+      this.gaugeChartMob.data.datasets[0].data = [0, 0, 0, 100];
+      this.gaugeChartMob.update();
+    }
+    const gaugeLabelMob = document.getElementById('gauge-center-label-mob');
+    if (gaugeLabelMob) { gaugeLabelMob.textContent = '–'; gaugeLabelMob.style.color = 'rgba(245,239,224,0.5)'; }
     const recEl = document.getElementById('prob-recommendation');
     if (recEl) { recEl.textContent = '–'; recEl.style.background = 'transparent'; }
+    const recMob = document.getElementById('prob-recommendation-mob');
+    if (recMob) { recMob.textContent = '–'; recMob.style.background = 'transparent'; }
+    ['prob-win-val-mob','prob-lose-val-mob','prob-bust-val-mob','prob-push-val-mob','safe-hit-val-mob','expected-value-mob'].forEach(id => {
+      const el = document.getElementById(id); if (el) el.textContent = '–';
+    });
     const gaugeLabel = document.getElementById('gauge-center-label');
     if (gaugeLabel) { gaugeLabel.textContent = '–'; gaugeLabel.style.color = 'rgba(245,239,224,0.5)'; }
   }
