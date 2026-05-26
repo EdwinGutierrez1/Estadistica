@@ -1,8 +1,15 @@
-import eventlet
-eventlet.monkey_patch()
+import os
+
+# Usar gevent en producción (Render), eventlet en local
+async_mode = os.getenv('SOCKETIO_ASYNC_MODE', 'eventlet')
+if async_mode == 'gevent':
+    from gevent import monkey
+    monkey.patch_all()
+else:
+    import eventlet
+    eventlet.monkey_patch()
 
 from app import create_app, socketio
-import os
 
 app = create_app()
 
