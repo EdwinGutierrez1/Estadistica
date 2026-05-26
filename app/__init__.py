@@ -66,6 +66,20 @@ def create_app(config_override: dict = None) -> Flask:
     with app.app_context():
         db.create_all()
 
+        # Crear usuario admin si no existe
+        admin_username = os.getenv('ADMIN_USERNAME', 'admin')
+        admin_password = os.getenv('ADMIN_PASSWORD', 'admin1234')
+        if not Player.query.filter_by(username=admin_username).first():
+            from datetime import datetime
+            admin = Player(
+                username=admin_username,
+                chips=999999999,
+                created_at=datetime.utcnow()
+            )
+            db.session.add(admin)
+            db.session.commit()
+            print(f'✅ Usuario admin creado: {admin_username}')
+
     @login_manager.user_loader
     def load_user(user_id: str):
         return Player.query.get(int(user_id))

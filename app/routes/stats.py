@@ -2,6 +2,8 @@ from flask import Blueprint, jsonify, render_template
 from flask_login import login_required, current_user
 from app import db
 from app.models.room import ProbabilitySnapshot, PlayerHand
+from app.models.player import Player
+from sqlalchemy import func, case
 
 stats_bp = Blueprint('stats', __name__)
 
@@ -15,7 +17,6 @@ def _enumerate(iterable, start=0):
 @login_required
 def player_history(player_id: int):
     from flask import request
-    from app.models.player import Player
 
     player = Player.query.get_or_404(player_id)
 
@@ -50,11 +51,40 @@ def game_summary(game_id: int):
 @stats_bp.route('/dashboard')
 @login_required
 def dashboard():
-    result = db.session.execute(db.text(
-        "SELECT * FROM game_statistics ORDER BY win_rate_pct DESC LIMIT 20"
-    ))
-    rows = [dict(row._mapping) for row in result]
-    return render_template('stats/dashboard.html', stats=rows)
+    # Calcular estadísticas directamente con SQLAlchemy — sin depender de vista SQL
+    rows = (
+        db.session.query(
+            Player.username,
+            func.count(PlayerHand.id).label('total_hands'),
+            func.sum(case((PlayerHand.result == 'win',      1), else_=0)).label('wins'),
+            func.sum(case((PlayerHand.result == 'blackjack',1), else_=0)).label('blackjacks'),
+            func.sum(case((PlayerHand.result == 'lose',     1), else_=0)).label('losses'),
+            func.sum(case((PlayerHand.result == 'bust',     1), else_=0)).label('busts'),
+            func.sum(func.coalesce(PlayerHand.chips_delta, 0)).label('total_chips_won'),
+        )
+        .join(PlayerHand, Player.id == PlayerHand.player_id)
+        .group_by(Player.id, Player.username)
+        .order_by(func.count(PlayerHand.id).desc())
+        .limit(20)
+        .all()
+    )
+
+    stats = []
+    for row in rows:
+        total = row.total_hands or 1
+        win_rate = round(((row.wins or 0) + (row.blackjacks or 0)) / total * 100, 1)
+        stats.append({
+            'username':        row.username,
+            'total_hands':     row.total_hands or 0,
+            'wins':            row.wins or 0,
+            'blackjacks':      row.blackjacks or 0,
+            'losses':          row.losses or 0,
+            'busts':           row.busts or 0,
+            'win_rate_pct':    win_rate,
+            'total_chips_won': row.total_chips_won or 0,
+        })
+
+    return render_template('stats/dashboard.html', stats=stats)
 
 
 @stats_bp.route('/probability-theory')
