@@ -20,7 +20,7 @@ class Room(db.Model):
     code            = db.Column(db.String(8), nullable=False, unique=True,
                                 default=_generate_room_code)
     admin_player_id = db.Column(db.Integer, db.ForeignKey('players.id'), nullable=False)
-    status          = db.Column(db.Enum('waiting','active','finished'),
+    status          = db.Column(db.Enum('waiting','active','finished', name='room_status'),
                                 nullable=False, default='waiting')
     name            = db.Column(db.String(80), nullable=False, default='Sala sin nombre')
     max_players     = db.Column(db.Integer, nullable=False, default=5)
@@ -84,7 +84,7 @@ class Game(db.Model):
     _deck_state  = db.Column('deck_state', db.JSON)
     _dealer_hand = db.Column('dealer_hand', db.JSON)
     status       = db.Column(
-        db.Enum('dealing','player_turns','dealer_turn','finished'),
+        db.Enum('dealing','player_turns','dealer_turn','finished', name='game_status'),
         default='dealing'
     )
     created_at  = db.Column(db.DateTime, default=datetime.utcnow)
@@ -117,7 +117,7 @@ class PlayerHand(db.Model):
     player_id   = db.Column(db.Integer, db.ForeignKey('players.id'), nullable=False)
     _cards      = db.Column('cards', db.JSON, nullable=False, default=list)
     final_score = db.Column(db.Integer)
-    result      = db.Column(db.Enum('win','lose','push','blackjack','bust'))
+    result      = db.Column(db.Enum('win','lose','push','blackjack','bust', name='hand_result'))
     bet_amount  = db.Column(db.Integer, default=0)
     chips_delta = db.Column(db.Integer)
 
