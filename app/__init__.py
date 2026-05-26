@@ -40,7 +40,6 @@ def create_app(config_override: dict = None) -> Flask:
     db.init_app(app)
     socketio.init_app(
         app,
-        async_mode=os.getenv('SOCKETIO_ASYNC_MODE', 'threading'),
         cors_allowed_origins="*",
         logger=True,
         engineio_logger=False

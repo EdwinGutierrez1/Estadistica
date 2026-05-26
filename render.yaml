@@ -17,8 +17,6 @@ services:
         value: "5"
       - key: DECKS_COUNT
         value: "1"
-      - key: SOCKETIO_ASYNC_MODE
-        value: "threading"
       - key: FLASK_DEBUG
         value: "False"
 
