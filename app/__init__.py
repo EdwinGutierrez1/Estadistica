@@ -6,6 +6,13 @@ from flask_cors import CORS
 from dotenv import load_dotenv
 import os
 
+# Compatibilidad psycopg2cffi con Python 3.14
+try:
+    import psycopg2
+except ImportError:
+    from psycopg2cffi import compat
+    compat.register()
+
 load_dotenv()
 
 db = SQLAlchemy()
