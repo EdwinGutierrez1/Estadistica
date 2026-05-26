@@ -1,7 +1,30 @@
+# Entornos virtuales
 venv/
+.venv/
+env/
+ENV/
+
+# Variables de entorno (NUNCA subir al repo)
+.env
+*.env
+
+# Python
 __pycache__/
 *.pyc
-.env
+*.pyo
+*.pyd
+*.egg-info/
+
+# Base de datos local y dumps
+*.sql
+*.sqlite
 *.db
+Dump*.sql
+
+# OS
 .DS_Store
-*.log
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/

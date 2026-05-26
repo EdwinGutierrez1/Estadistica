@@ -159,31 +159,6 @@ class ProbabilityUI {
     const canvas = document.getElementById('prob-gauge');
     if (!canvas || typeof Chart === 'undefined') return;
 
-    // Crear popover directo en body para garantizar centrado real en pantalla
-    let pop = document.getElementById('gauge-popover');
-    if (!pop) {
-      pop = document.createElement('div');
-      pop.id = 'gauge-popover';
-      Object.assign(pop.style, {
-        display:         'none',
-        position:        'fixed',
-        top:             '50%',
-        left:            '50%',
-        transform:       'translate(-50%, -50%)',
-        width:           'min(440px, 92vw)',
-        background:      'rgba(8,8,8,0.97)',
-        border:          '1px solid rgba(201,168,76,0.45)',
-        borderRadius:    '14px',
-        padding:         '22px 24px',
-        zIndex:          '99999',
-        boxShadow:       '0 24px 64px rgba(0,0,0,0.85)',
-        backdropFilter:  'blur(10px)',
-        pointerEvents:   'none',
-        transition:      'opacity 0.18s ease',
-      });
-      document.body.appendChild(pop);
-    }
-
     const ctx = canvas.getContext('2d');
     this.gaugeChart = new Chart(ctx, {
       type: 'doughnut',

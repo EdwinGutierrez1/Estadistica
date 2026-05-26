@@ -17,15 +17,11 @@ def create_app(config_override: dict = None) -> Flask:
     app = Flask(__name__)
 
     app.config['SECRET_KEY'] = os.getenv('SECRET_KEY', 'dev-key')
-    db_uri = (
-        f"mysql+pymysql://{os.getenv('DB_USER', 'root')}:"
-        f"{os.getenv('DB_PASSWORD', '')}@"
-        f"{os.getenv('DB_HOST', 'localhost')}:"
-        f"{os.getenv('DB_PORT', '3306')}/"
-        f"{os.getenv('DB_NAME', 'blackjack')}"
-        f"?charset=utf8mb4"
-    )
-    app.config['SQLALCHEMY_DATABASE_URI'] = db_uri
+    # Render entrega URLs con "postgres://" pero SQLAlchemy necesita "postgresql://"
+    database_url = os.getenv('DATABASE_URL', '')
+    if database_url.startswith('postgres://'):
+        database_url = database_url.replace('postgres://', 'postgresql://', 1)
+    app.config['SQLALCHEMY_DATABASE_URI'] = database_url
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['MIN_PLAYERS'] = int(os.getenv('MIN_PLAYERS', 3))
     app.config['MAX_PLAYERS'] = int(os.getenv('MAX_PLAYERS', 5))
