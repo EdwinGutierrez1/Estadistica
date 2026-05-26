@@ -62,6 +62,10 @@ def create_app(config_override: dict = None) -> Flask:
 
     from app.models.player import Player
 
+    # Crear tablas automáticamente si no existen
+    with app.app_context():
+        db.create_all()
+
     @login_manager.user_loader
     def load_user(user_id: str):
         return Player.query.get(int(user_id))
